@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paraíso Pokémon</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #status {
+      position: fixed; left: 12px; top: 12px; right: 12px;
+      color: #ffd166; font: 14px monospace; white-space: pre-wrap;
+    }
+    #ajuda {
+      position: fixed; left: 12px; bottom: 12px;
+      color: #cdd6e0; font: 12px monospace;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="tela"></canvas>
+  <div id="status">Carregando...</div>
+  <div id="ajuda">[L] liga/desliga iluminação</div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
