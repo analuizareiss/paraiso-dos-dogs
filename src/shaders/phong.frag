@@ -3,7 +3,7 @@ precision mediump float;
 
 in vec3 v_normal;
 in vec3 v_posicaoMundo;
-
+in vec2 v_texcoord;
 
 uniform vec3 u_dirLuz;
 uniform vec3 u_corLuz;
@@ -15,13 +15,18 @@ uniform vec3 u_kd;
 uniform vec3 u_ks;
 uniform float u_brilho;
 
+uniform sampler2D u_textura;
+uniform float u_repeticao;
+
 uniform bool u_iluminacao;
 
 out vec4 o_cor;
 
 void main() {
+  vec3 albedo = texture(u_textura, v_texcoord * u_repeticao).rgb;
+
   if (!u_iluminacao) {
-    o_cor = vec4(u_kd, 1.0);
+    o_cor = vec4(albedo, 1.0);
     return;
   }
 
@@ -36,8 +41,8 @@ void main() {
     esp = pow(max(dot(n, h), 0.0), u_brilho);
   }
 
-  vec3 cor = u_ka * u_luzAmbiente
-           + u_kd * u_corLuz * dif
+  vec3 cor = u_ka * u_luzAmbiente * albedo
+           + u_kd * u_corLuz * dif * albedo
            + u_ks * u_corLuz * esp;
 
   o_cor = vec4(cor, 1.0);

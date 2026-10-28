@@ -3,13 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Paraíso Pokémon</title>
+  <title>Paraíso dos Dogs</title>
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; }
-    canvas { display: block; width: 100%; height: 100%; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     #status {
       position: fixed; left: 12px; top: 12px; right: 12px;
-      color: #ffd166; font: 14px monospace; white-space: pre-wrap;
+      color: #ff8a8a; font: 14px monospace; white-space: pre-wrap;
+    }
+    #hud {
+      position: fixed; right: 12px; top: 12px;
+      color: #ffd166; font: 13px monospace; text-align: right; white-space: pre;
     }
     #ajuda {
       position: fixed; left: 12px; bottom: 12px;
@@ -19,8 +23,9 @@
 </head>
 <body>
   <canvas id="tela"></canvas>
-  <div id="status">Carregando...</div>
-  <div id="ajuda">[L] liga/desliga iluminação</div>
+  <div id="status"></div>
+  <div id="hud"></div>
+  <div id="ajuda">[1] câmera automática (scroll = zoom) &nbsp; [2] câmera orbital (arraste) &nbsp; [L] iluminação</div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

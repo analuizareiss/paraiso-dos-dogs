@@ -1,19 +1,22 @@
-import * as twgl from "https://cdnjs.cloudflare.com/ajax/libs/twgl.js/5.5.3/twgl-full.module.js";
+import * as twgl from "./twgl.js";
+import { CameraAutomatica, CameraOrbital } from "./camera.js";
+import { criarCenario } from "./cenario.js";
 
 const m4 = twgl.m4;
 
 twgl.setDefaults({ attribPrefix: "a_" });
 
-window.__iniciou = true;
+const RAIO_DIORAMA = 5;
+const CENTRO_DIORAMA = [0, 0, 0];
 
-function mostrarStatus(texto, erro = false) {
-  const status = document.querySelector("#status");
-  status.style.color = erro ? "#ff8a8a" : "#ffd166";
-  status.textContent = texto;
-}
+const cameras = {
+  1: new CameraAutomatica(CENTRO_DIORAMA),
+  2: new CameraOrbital(CENTRO_DIORAMA),
+};
 
 const estado = {
   iluminacao: true,
+  camera: cameras[1],
 };
 
 const luz = {
@@ -22,20 +25,17 @@ const luz = {
   ambiente: [0.25, 0.25, 0.3],
 };
 
-const camera = {
-  posicao: [4, 3, 6],
-  alvo: [0, 0, 0],
-  cima: [0, 1, 0],
-};
+function mostrarStatus(texto) {
+  document.querySelector("#status").textContent = texto;
+}
 
-
-// cubo de teste, só para validar o pipeline
-const materialCubo = {
-  ka: [0.4, 0.2, 0.2],
-  kd: [0.8, 0.3, 0.3],
-  ks: [0.9, 0.9, 0.9],
-  brilho: 40,
-};
+function atualizarPainel(camera) {
+  const graus = (rad) => (rad * 180 / Math.PI).toFixed(0);
+  document.querySelector("#hud").textContent =
+    `câmera: ${camera.nome}\n` +
+    `distância: ${camera.distancia.toFixed(1)}\n` +
+    `elevação: ${graus(camera.elevacao)}º`;
+}
 
 async function carregarTexto(url) {
   const resposta = await fetch(url);
@@ -45,17 +45,98 @@ async function carregarTexto(url) {
 
 function configurarTeclado() {
   window.addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "l") {
+    const tecla = e.key.toLowerCase();
+    if (tecla === "l") {
       estado.iluminacao = !estado.iluminacao;
+    } else if (tecla === "1" || tecla === "2") {
+      estado.camera = cameras[tecla];
     }
   });
+}
+
+function configurarMouse(canvas) {
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (!estado.camera.aoRolar) return;
+    const deltaY = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    estado.camera.aoRolar(deltaY);
+  }, { passive: false });
+
+  let arrastando = false;
+  canvas.addEventListener("pointerdown", (e) => {
+    arrastando = true;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!arrastando || !estado.camera.aoArrastar) return;
+    estado.camera.aoArrastar(e.movementX, e.movementY);
+  });
+  const soltar = () => { arrastando = false; };
+  canvas.addEventListener("pointerup", soltar);
+  canvas.addEventListener("pointercancel", soltar);
+}
+
+function carregarTextura(gl, caminho, wrap = gl.REPEAT) {
+  return twgl.createTexture(gl, {
+    src: caminho,
+    min: gl.LINEAR_MIPMAP_LINEAR,
+    mag: gl.LINEAR,
+    wrap,
+  });
+}
+
+
+function criarDisco(gl, raio, divisoes) {
+  const vertices = twgl.primitives.createDiscVertices(raio, divisoes);
+  const posicao = vertices.position;
+  const texcoord = vertices.texcoord;
+  for (let i = 0; i < posicao.length / 3; i++) {
+    texcoord[i * 2] = posicao[i * 3] / (2 * raio) + 0.5;        
+    texcoord[i * 2 + 1] = posicao[i * 3 + 2] / (2 * raio) + 0.5; 
+  }
+  return twgl.createBufferInfoFromArrays(gl, vertices);
+}
+
+
+function criarCena(gl) {
+  const chao = {
+    nome: "chão",
+    malha: criarDisco(gl, RAIO_DIORAMA, 64),
+    material: {
+      ka: [0.6, 0.6, 0.6],
+      kd: [0.9, 0.9, 0.9],
+      ks: [0.04, 0.04, 0.04],
+      brilho: 4,
+    },
+    textura: carregarTextura(gl, "assets/grama.avif"),
+    repeticao: 4,
+    modelo: m4.identity(),
+  };
+
+  const base = {
+    nome: "hemisfério",
+    malha: twgl.primitives.createSphereBufferInfo(
+      gl, RAIO_DIORAMA, 64, 24, Math.PI / 2, Math.PI
+    ),
+    material: {
+      ka: [0.6, 0.6, 0.6],
+      kd: [0.9, 0.9, 0.9],
+      ks: [0.7, 0.7, 0.7],
+      brilho: 60,
+    },
+    textura: carregarTextura(gl, "assets/casco.png"),
+    repeticao: 4,
+    modelo: m4.identity(),
+  };
+
+  return [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura)];
 }
 
 async function main() {
   const canvas = document.querySelector("#tela");
   const gl = canvas.getContext("webgl2");
   if (!gl) {
-    document.body.textContent = "Seu navegador não suporta WebGL2.";
+    mostrarStatus("Seu navegador não suporta WebGL2.");
     return;
   }
 
@@ -67,23 +148,51 @@ async function main() {
     throw new Error("Shader: " + msg);
   });
 
-  const cubo = twgl.primitives.createCubeBufferInfo(gl, 2);
-
+  const objetos = criarCena(gl);
   configurarTeclado();
+  configurarMouse(canvas);
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
   gl.clearColor(0.06, 0.08, 0.11, 1);
 
-  let tempoAnterior = 0;
-  let anguloCubo = 0;
+
+  function desenharObjeto(objeto, matrizPai) {
+    const matrizMundo = m4.multiply(matrizPai, objeto.modelo);
+
+    if (objeto.malha) {
+      const matrizNormal = m4.transpose(m4.inverse(matrizMundo));
+      const material = objeto.material;
+
+      twgl.setBuffersAndAttributes(gl, programa, objeto.malha);
+      twgl.setUniforms(programa, {
+        u_modelo: matrizMundo,
+        u_matrizNormal: matrizNormal,
+        u_ka: material.ka,
+        u_kd: material.kd,
+        u_ks: material.ks,
+        u_brilho: material.brilho,
+        u_textura: objeto.textura,
+        u_repeticao: objeto.repeticao,
+      });
+      twgl.drawBufferInfo(gl, objeto.malha);
+    }
+
+    for (const filho of objeto.filhos ?? []) {
+      desenharObjeto(filho, matrizMundo);
+    }
+  }
+
+  let tempoAnterior = null;
 
   function desenhar(tempo) {
-    tempo *= 0.001;
-    const dt = tempo - tempoAnterior;
+    tempo *= 0.001; 
+    const dt = tempoAnterior === null ? 0 : tempo - tempoAnterior;
     tempoAnterior = tempo;
 
-    anguloCubo += dt * 0.8;
+    const camera = estado.camera;
+    camera.atualizar?.(dt);
+    atualizarPainel(camera);
 
     twgl.resizeCanvasToDisplaySize(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -91,36 +200,26 @@ async function main() {
 
     const aspecto = canvas.clientWidth / canvas.clientHeight;
     const projecao = m4.perspective((45 * Math.PI) / 180, aspecto, 0.1, 100);
-    const visao = m4.inverse(m4.lookAt(camera.posicao, camera.alvo, camera.cima));
-
-    let modelo = m4.rotationY(anguloCubo);
-    modelo = m4.rotateX(modelo, anguloCubo * 0.5);
-
-    const matrizNormal = m4.transpose(m4.inverse(modelo));
+    const posCamera = camera.posicao();
+    const visao = m4.inverse(m4.lookAt(posCamera, camera.alvo, [0, 1, 0]));
 
     gl.useProgram(programa.program);
-    twgl.setBuffersAndAttributes(gl, programa, cubo);
-    twgl.setUniforms(programa, {
+
+    const uniformesDaCena = {
       u_projecao: projecao,
       u_visao: visao,
-      u_modelo: modelo,
-      u_matrizNormal: matrizNormal,
       u_dirLuz: luz.direcao,
       u_corLuz: luz.cor,
       u_luzAmbiente: luz.ambiente,
-      u_posCamera: camera.posicao,
-      u_ka: materialCubo.ka,
-      u_kd: materialCubo.kd,
-      u_ks: materialCubo.ks,
-      u_brilho: materialCubo.brilho,
+      u_posCamera: posCamera,
       u_iluminacao: estado.iluminacao,
-    });
-    twgl.drawBufferInfo(gl, cubo);
+    };
 
-    mostrarStatus(
-      `canvas ${canvas.width}x${canvas.height} | aspecto ${aspecto.toFixed(2)} | ` +
-      `erro GL: ${gl.getError()} | iluminação: ${estado.iluminacao}`
-    );
+    twgl.setUniforms(programa, uniformesDaCena);
+    for (const objeto of objetos) {
+      desenharObjeto(objeto, m4.identity());
+    }
+
     requestAnimationFrame(desenhar);
   }
 
@@ -129,5 +228,5 @@ async function main() {
 
 main().catch((erro) => {
   console.error(erro);
-  mostrarStatus("ERRO: " + erro.message, true);
+  mostrarStatus("ERRO: " + erro.message);
 });
