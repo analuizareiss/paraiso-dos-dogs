@@ -1,6 +1,7 @@
 import * as twgl from "./twgl.js";
 import { CameraAutomatica, CameraOrbital } from "./camera.js";
 import { criarCenario } from "./cenario.js";
+import { criarCachorro } from "./cachorro.js";
 
 const m4 = twgl.m4;
 
@@ -129,7 +130,9 @@ function criarCena(gl) {
     modelo: m4.identity(),
   };
 
-  return [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura)];
+  const cachorro = criarCachorro(gl);
+
+  return [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura), cachorro.raiz];
 }
 
 async function main() {
