@@ -2,6 +2,7 @@ import * as twgl from "./twgl.js";
 import { CameraAutomatica, CameraOrbital } from "./camera.js";
 import { criarCenario } from "./cenario.js";
 import { criarCachorro } from "./cachorro.js";
+import { criarCarinho } from "./carinho.js";
 
 const m4 = twgl.m4;
 
@@ -58,7 +59,7 @@ function configurarTeclado(cachorro) {
   });
 }
 
-function configurarMouse(canvas) {
+function configurarMouse(canvas, carinho) {
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
     if (!estado.camera.aoRolar) return;
@@ -68,14 +69,21 @@ function configurarMouse(canvas) {
 
   let arrastando = false;
   canvas.addEventListener("pointerdown", (e) => {
-    arrastando = true;
     canvas.setPointerCapture(e.pointerId);
+    
+    // se for carinho a câmera não gira
+    if (carinho.aoPressionar(e)) return;
+    arrastando = true;
   });
   canvas.addEventListener("pointermove", (e) => {
+    carinho.aoMover(e);
     if (!arrastando || !estado.camera.aoArrastar) return;
     estado.camera.aoArrastar(e.movementX, e.movementY);
   });
-  const soltar = () => { arrastando = false; };
+  const soltar = () => {
+    arrastando = false;
+    carinho.aoSoltar();
+  };
   canvas.addEventListener("pointerup", soltar);
   canvas.addEventListener("pointercancel", soltar);
 }
@@ -156,8 +164,9 @@ async function main() {
   });
 
   const { objetos, cachorro } = criarCena(gl);
+  const carinho = criarCarinho({ canvas, cachorro, balao: document.querySelector("#balao") });
   configurarTeclado(cachorro);
-  configurarMouse(canvas);
+  configurarMouse(canvas, carinho);
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
@@ -210,6 +219,8 @@ async function main() {
     const projecao = m4.perspective((45 * Math.PI) / 180, aspecto, 0.1, 100);
     const posCamera = camera.posicao();
     const visao = m4.inverse(m4.lookAt(posCamera, camera.alvo, [0, 1, 0]));
+
+    carinho.atualizar(projecao, visao);
 
     gl.useProgram(programa.program);
 

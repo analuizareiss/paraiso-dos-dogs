@@ -281,14 +281,19 @@ export function criarCachorro(gl) {
     return { posicao: pose.posicao, giroY, juntas };
   }
 
-  function aplicar(retrato, pulo = 0) {
+  function aplicar(retrato, pulo = 0, extras = {}) {
     const [x, y, z] = retrato.posicao;
     raiz.pos = [x, y + pulo, z];
     raiz.rot = [0, retrato.giroY, 0];
     atualizarModelo(raiz);
     for (const chave in partes) {
       const { pos, rot, escala } = retrato.juntas[chave];
-      Object.assign(partes[chave], { pos, rot, escala });
+      const extra = extras[chave] ?? {};
+      Object.assign(partes[chave], {
+        pos,
+        rot: extra.rot ? rot.map((v, i) => v + extra.rot[i]) : rot,
+        escala: extra.escala ? escala.map((v, i) => v * extra.escala[i]) : escala,
+      });
       atualizarModelo(partes[chave]);
     }
   }
@@ -314,18 +319,64 @@ export function criarCachorro(gl) {
   
   const suavizar = (t) => t * t * (3 - 2 * t);
 
+  // carinho
+  const DECAIMENTO_ALEGRIA = 0.45;
+  let alegria = 0; // de 0 a 1
+  let relogio = 0;
+
+  function acariciar(quantidade) {
+    alegria = Math.min(alegria + quantidade, 1);
+  }
+
+  function esferasDeToque() {
+    const mCorpo = m4.multiply(raiz.modelo, corpo.modelo);
+    const mCabeca = m4.multiply(mCorpo, cabeca.modelo);
+    return [
+      { centro: m4.transformPoint(mCorpo, [0, 0, 0.17]), raio: 0.34 },
+      { centro: m4.transformPoint(mCorpo, [0, 0, -0.2]), raio: 0.34 },
+      { centro: m4.transformPoint(mCabeca, [0, 0.05, 0.16]), raio: 0.30 },
+    ];
+  }
+
+  function pontoDoBalao() {
+    const mCabeca = m4.multiply(m4.multiply(raiz.modelo, corpo.modelo), cabeca.modelo);
+    const [x, y, z] = m4.transformPoint(mCabeca, [0, 0.3, 0.1]);
+    return [x, y + 0.25, z];
+  }
+
+  function animacaoDeAlegria() {
+    if (alegria < 0.001) return {};
+    const h = alegria;
+    const abano = Math.sin(relogio * 22);
+    const orelha = Math.sin(relogio * 14);
+    return {
+      // rabo abanando, cabeça balançando, orelhas mexendo, olhos apertados
+      rabo: { rot: [0, 40 * h * abano, 40 * h * abano] },
+      pontaRabo: { rot: [0, 0, 25 * h * Math.sin(relogio * 22 - 1)] },
+      cabeca: { rot: [0, 0, 7 * h * Math.sin(relogio * 6)] },
+      orelhaEsq: { rot: [0, 0, 12 * h * orelha] },
+      orelhaDir: { rot: [0, 0, -12 * h * orelha] },
+      olhoEsq: { escala: [1, 1 - 0.65 * h, 1] },
+      olhoDir: { escala: [1, 1 - 0.65 * h, 1] },
+    };
+  }
+
   function atualizar(dt) {
     const DURACAO_TRANSICAO = 1.2;
     const ALTURA_PULINHO = 0.25;
-  
-    if (progresso >= 1) return;
-  
-    progresso = Math.min(progresso + dt / DURACAO_TRANSICAO, 1);
-    const t = suavizar(progresso);
-    atual = misturar(origem, destino, t);
-    const mudouDeLugar = origem.posicao[0] !== destino.posicao[0] || origem.posicao[2] !== destino.posicao[2];
-    const pulo = mudouDeLugar ? ALTURA_PULINHO * Math.sin(Math.PI * progresso) : 0;
-    aplicar(atual, pulo);
+
+    relogio += dt;
+    alegria = Math.max(alegria - DECAIMENTO_ALEGRIA * dt, 0);
+
+    let pulo = 0;
+    if (progresso < 1) {
+      progresso = Math.min(progresso + dt / DURACAO_TRANSICAO, 1);
+      const t = suavizar(progresso);
+      atual = misturar(origem, destino, t);
+      const mudouDeLugar = origem.posicao[0] !== destino.posicao[0] || origem.posicao[2] !== destino.posicao[2];
+      pulo = mudouDeLugar ? ALTURA_PULINHO * Math.sin(Math.PI * progresso) : 0;
+    }
+    aplicar(atual, pulo, animacaoDeAlegria());
   }
 
   return {
@@ -334,6 +385,12 @@ export function criarCachorro(gl) {
     proximaPose,
     irParaPose,
     atualizar,
+    acariciar,
+    esferasDeToque,
+    pontoDoBalao,
+    get alegria() {
+      return alegria;
+    },
     get nomePose() {
       return POSES[indicePose].nome;
     },

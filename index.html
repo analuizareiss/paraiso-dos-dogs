@@ -15,6 +15,16 @@
       position: fixed; right: 12px; top: 12px;
       color: #ffd166; font: 13px monospace; text-align: right; white-space: pre;
     }
+    #balao {
+      position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none;
+      transform: translate(-50%, -100%);
+      background: #fff; border-radius: 50%; padding: 6px 8px; font-size: 28px; line-height: 1;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    }
+    #balao::after {
+      content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -6px;
+      border: 6px solid transparent; border-top-color: #fff; border-bottom: 0;
+    }
     #ajuda {
       position: fixed; left: 12px; bottom: 12px;
       color: #cdd6e0; font: 12px monospace;
@@ -25,7 +35,8 @@
   <canvas id="tela"></canvas>
   <div id="status"></div>
   <div id="hud"></div>
-  <div id="ajuda">[1] câmera automática (scroll = zoom) &nbsp; [2] câmera orbital (arraste) &nbsp; [L] iluminação &nbsp; [P] pose do cachorro</div>
+  <div id="balao"></div>
+  <div id="ajuda">[1] câmera automática (scroll = zoom) &nbsp; [2] câmera orbital (arraste) &nbsp; [L] iluminação &nbsp; [P] pose do cachorro &nbsp; [arraste sobre o cachorro] carinho</div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
