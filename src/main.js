@@ -3,6 +3,7 @@ import { CameraAutomatica, CameraOrbital } from "./camera.js";
 import { criarCenario } from "./cenario.js";
 import { criarCachorro } from "./cachorro.js";
 import { criarCarinho } from "./carinho.js";
+import { criarSomAmbiente } from "./ambiente.js";
 
 const m4 = twgl.m4;
 
@@ -46,7 +47,7 @@ async function carregarTexto(url) {
   return resposta.text();
 }
 
-function configurarTeclado(cachorro) {
+function configurarTeclado(cachorro, ambiente) {
   window.addEventListener("keydown", (e) => {
     const tecla = e.key.toLowerCase();
     if (tecla === "l") {
@@ -55,6 +56,8 @@ function configurarTeclado(cachorro) {
       estado.camera = cameras[tecla];
     } else if (tecla === "p" && !e.repeat) {
       cachorro.proximaPose();
+    } else if (tecla === "m" && !e.repeat) {
+      ambiente.alternarMudo();
     }
   });
 }
@@ -165,7 +168,10 @@ async function main() {
 
   const { objetos, cachorro } = criarCena(gl);
   const carinho = criarCarinho({ canvas, cachorro, balao: document.querySelector("#balao") });
-  configurarTeclado(cachorro);
+  const ambiente = criarSomAmbiente();
+  window.addEventListener("pointerdown", ambiente.iniciar);
+  window.addEventListener("keydown", ambiente.iniciar);
+  configurarTeclado(cachorro, ambiente);
   configurarMouse(canvas, carinho);
 
   gl.enable(gl.DEPTH_TEST);
