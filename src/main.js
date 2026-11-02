@@ -30,12 +30,13 @@ function mostrarStatus(texto) {
   document.querySelector("#status").textContent = texto;
 }
 
-function atualizarPainel(camera) {
+function atualizarPainel(camera, cachorro) {
   const graus = (rad) => (rad * 180 / Math.PI).toFixed(0);
   document.querySelector("#hud").textContent =
     `câmera: ${camera.nome}\n` +
     `distância: ${camera.distancia.toFixed(1)}\n` +
-    `elevação: ${graus(camera.elevacao)}º`;
+    `elevação: ${graus(camera.elevacao)}º\n` +
+    `pose: ${cachorro.nomePose}`;
 }
 
 async function carregarTexto(url) {
@@ -44,13 +45,15 @@ async function carregarTexto(url) {
   return resposta.text();
 }
 
-function configurarTeclado() {
+function configurarTeclado(cachorro) {
   window.addEventListener("keydown", (e) => {
     const tecla = e.key.toLowerCase();
     if (tecla === "l") {
       estado.iluminacao = !estado.iluminacao;
     } else if (tecla === "1" || tecla === "2") {
       estado.camera = cameras[tecla];
+    } else if (tecla === "p" && !e.repeat) {
+      cachorro.proximaPose();
     }
   });
 }
@@ -131,8 +134,9 @@ function criarCena(gl) {
   };
 
   const cachorro = criarCachorro(gl);
+  const objetos = [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura), cachorro.raiz];
 
-  return [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura), cachorro.raiz];
+  return { objetos, cachorro };
 }
 
 async function main() {
@@ -151,8 +155,8 @@ async function main() {
     throw new Error("Shader: " + msg);
   });
 
-  const objetos = criarCena(gl);
-  configurarTeclado();
+  const { objetos, cachorro } = criarCena(gl);
+  configurarTeclado(cachorro);
   configurarMouse(canvas);
 
   gl.enable(gl.DEPTH_TEST);
@@ -195,7 +199,8 @@ async function main() {
 
     const camera = estado.camera;
     camera.atualizar?.(dt);
-    atualizarPainel(camera);
+    cachorro.atualizar(dt);
+    atualizarPainel(camera, cachorro);
 
     twgl.resizeCanvasToDisplaySize(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);

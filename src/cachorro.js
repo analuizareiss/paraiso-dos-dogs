@@ -73,21 +73,92 @@ function montarModelo({ pos = [0, 0, 0], rot = [0, 0, 0], escala = [1, 1, 1] }) 
   return m;
 }
 
-function articulacao(nome, pos, filhos = [], rot = [0, 0, 0]) {
-  return { nome, modelo: montarModelo({ pos, rot }), filhos };
+function atualizarModelo(no) {
+  no.modelo = montarModelo(no);
 }
 
-function malhaDe(nome, malha, textura, material, transformacao, repeticao = 2) {
-  return {
-    nome,
-    malha,
-    textura,
-    material,
-    repeticao,
-    modelo: montarModelo(transformacao),
-    filhos: [],
-  };
+function articulacao(nome, pos, filhos = [], rot = [0, 0, 0]) {
+  const no = { nome, pos, rot, escala: [1, 1, 1], filhos };
+  atualizarModelo(no);
+  return no;
 }
+
+function malhaDe(nome, malha, textura, material, { pos = [0, 0, 0], rot = [0, 0, 0], escala = [1, 1, 1] }, repeticao = 2) {
+  const no = { nome, malha, textura, material, repeticao, pos, rot, escala, filhos: [] };
+  atualizarModelo(no);
+  return no;
+}
+
+// para transições suaves entre as poses
+function misturar(a, b, t) {
+  if (typeof a === "number"){
+    return a + (b - a) * t;
+  }
+  if (Array.isArray(a)){
+    return a.map((valor, i) => misturar(valor, b[i], t));
+  }
+
+  const resultado = {};
+  for (const chave in a){
+    resultado[chave] = misturar(a[chave], b[chave], t);
+  }
+
+  return resultado;
+}
+
+function giroParaOlhar(posicao, alvo) {
+  return Math.atan2(alvo[0] - posicao[0], alvo[2] - posicao[2]) / GRAUS;
+}
+
+function diferencaAngular(de, para) {
+  return ((((para - de) % 360) + 540) % 360) - 180;
+}
+
+// array das diferentes poses do cachorro, com posição, rotação e juntas (posição, rotação e escala de cada parte)
+export const POSES = [
+  {
+    nome: "em pé",
+    posicao: [0, 0, 0],
+    giroY: 30,
+    juntas: {},
+  },
+  {
+    nome: "sentado na borda",
+    posicao: [4.15, 0, 0.37],
+    olharPara: [0, 0, 0],
+    juntas: {
+      corpo: { pos: [0, 0.345, 0], rot: [-28, 0, 0] },
+      cabeca: { rot: [20, 0, 0] },
+      rabo: { rot: [-60, 0, 0] },
+      // patas esticadas
+      pataDianteiraEsq: { rot: [28, 0, 0], escala: [1, 1.3, 1] },
+      pataDianteiraDir: { rot: [28, 0, 0], escala: [1, 1.3, 1] },
+      // patas dobradas
+      pataTraseiraEsq: { pos: [0.2, -0.12, -0.2], rot: [-95, 0, 0], escala: [1, 0.6, 1] },
+      pataTraseiraDir: { pos: [-0.2, -0.12, -0.2], rot: [-95, 0, 0], escala: [1, 0.6, 1] },
+    },
+  },
+  {
+    nome: "dormindo de barriga pra cima",
+    posicao: [-0.9, 0, -0.5],
+    giroY: -60,
+    juntas: {
+      corpo: { pos: [0, 0.29, 0], rot: [0, 0, 180] },
+      cabeca: { rot: [0, 0, 180] },
+      rabo: { rot: [-80, 0, 0] },
+      pontaRabo: { rot: [0, 0, 0] },
+      orelhaEsq: { rot: [0, 0, 25] },
+      orelhaDir: { rot: [0, 0, -25] },
+      pataDianteiraEsq: { rot: [50, 0, 0] },
+      pataDianteiraDir: { rot: [50, 0, 0] },
+      pataTraseiraEsq: { rot: [-40, 0, 0] },
+      pataTraseiraDir: { rot: [-40, 0, 0] },
+      // olhos fechados
+      olhoEsq: { escala: [0.03, 0.006, 0.025] },
+      olhoDir: { escala: [0.03, 0.006, 0.025] },
+    },
+  },
+];
 
 export function criarCachorro(gl) {
   const esfera = twgl.primitives.createSphereBufferInfo(gl, 1, 24, 16);
@@ -178,26 +249,93 @@ export function criarCachorro(gl) {
 
   const raiz = articulacao("cachorro", [0, 0, 0], [corpo]);
 
-  function posicionar(posicao, giroY = 0) {
-    raiz.modelo = montarModelo({ pos: posicao, rot: [0, giroY, 0] });
+  // nós que as poses podem mexer (posição, rotação e escala)
+  const partes = {
+    corpo,
+    cabeca,
+    orelhaEsq,
+    orelhaDir,
+    rabo,
+    pontaRabo,
+    pataDianteiraEsq,
+    pataDianteiraDir,
+    pataTraseiraEsq,
+    pataTraseiraDir,
+    olhoEsq,
+    olhoDir,
+  };
+
+  // pose neutra
+  const neutro = {};
+  for (const chave in partes) {
+    const { pos, rot, escala } = partes[chave];
+    neutro[chave] = { pos: [...pos], rot: [...rot], escala: [...escala] };
   }
 
-  posicionar([0, 0, 0], 30);
+  function resolverPose(pose) {
+    const juntas = {};
+    for (const chave in neutro) {
+      juntas[chave] = { ...neutro[chave], ...pose.juntas[chave] };
+    }
+    const giroY = pose.olharPara ? giroParaOlhar(pose.posicao, pose.olharPara) : pose.giroY;
+    return { posicao: pose.posicao, giroY, juntas };
+  }
+
+  function aplicar(retrato, pulo = 0) {
+    const [x, y, z] = retrato.posicao;
+    raiz.pos = [x, y + pulo, z];
+    raiz.rot = [0, retrato.giroY, 0];
+    atualizarModelo(raiz);
+    for (const chave in partes) {
+      const { pos, rot, escala } = retrato.juntas[chave];
+      Object.assign(partes[chave], { pos, rot, escala });
+      atualizarModelo(partes[chave]);
+    }
+  }
+
+  let indicePose = 0;
+  let atual = resolverPose(POSES[indicePose]);
+  let origem = atual;
+  let destino = atual;
+  let progresso = 1;
+  aplicar(atual);
+
+  function irParaPose(indice) {
+    indicePose = indice % POSES.length;
+    origem = atual;
+    destino = resolverPose(POSES[indicePose]);
+    destino.giroY = origem.giroY + diferencaAngular(origem.giroY, destino.giroY);
+    progresso = 0;
+  }
+
+  function proximaPose() {
+    irParaPose(indicePose + 1);
+  }
+  
+  const suavizar = (t) => t * t * (3 - 2 * t);
+
+  function atualizar(dt) {
+    const DURACAO_TRANSICAO = 1.2;
+    const ALTURA_PULINHO = 0.25;
+  
+    if (progresso >= 1) return;
+  
+    progresso = Math.min(progresso + dt / DURACAO_TRANSICAO, 1);
+    const t = suavizar(progresso);
+    atual = misturar(origem, destino, t);
+    const mudouDeLugar = origem.posicao[0] !== destino.posicao[0] || origem.posicao[2] !== destino.posicao[2];
+    const pulo = mudouDeLugar ? ALTURA_PULINHO * Math.sin(Math.PI * progresso) : 0;
+    aplicar(atual, pulo);
+  }
 
   return {
     raiz,
-    posicionar,
-    partes: {
-      corpo,
-      cabeca,
-      orelhaEsq,
-      orelhaDir,
-      rabo,
-      pontaRabo,
-      pataDianteiraEsq,
-      pataDianteiraDir,
-      pataTraseiraEsq,
-      pataTraseiraDir,
+    partes,
+    proximaPose,
+    irParaPose,
+    atualizar,
+    get nomePose() {
+      return POSES[indicePose].nome;
     },
   };
 }
