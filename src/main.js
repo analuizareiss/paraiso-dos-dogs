@@ -1,6 +1,9 @@
 import * as twgl from "./twgl.js";
 import { CameraAutomatica, CameraOrbital } from "./camera.js";
 import { criarCenario } from "./cenario.js";
+import { criarCachorro } from "./cachorro.js";
+import { criarCarinho } from "./carinho.js";
+import { criarSomAmbiente } from "./ambiente.js";
 
 const m4 = twgl.m4;
 
@@ -29,12 +32,13 @@ function mostrarStatus(texto) {
   document.querySelector("#status").textContent = texto;
 }
 
-function atualizarPainel(camera) {
+function atualizarPainel(camera, cachorro) {
   const graus = (rad) => (rad * 180 / Math.PI).toFixed(0);
   document.querySelector("#hud").textContent =
     `câmera: ${camera.nome}\n` +
     `distância: ${camera.distancia.toFixed(1)}\n` +
-    `elevação: ${graus(camera.elevacao)}º`;
+    `elevação: ${graus(camera.elevacao)}º\n` +
+    `pose: ${cachorro.nomePose}`;
 }
 
 async function carregarTexto(url) {
@@ -43,18 +47,22 @@ async function carregarTexto(url) {
   return resposta.text();
 }
 
-function configurarTeclado() {
+function configurarTeclado(cachorro, ambiente) {
   window.addEventListener("keydown", (e) => {
     const tecla = e.key.toLowerCase();
     if (tecla === "l") {
       estado.iluminacao = !estado.iluminacao;
     } else if (tecla === "1" || tecla === "2") {
       estado.camera = cameras[tecla];
+    } else if (tecla === "p" && !e.repeat) {
+      cachorro.proximaPose();
+    } else if (tecla === "m" && !e.repeat) {
+      ambiente.alternarMudo();
     }
   });
 }
 
-function configurarMouse(canvas) {
+function configurarMouse(canvas, carinho) {
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
     if (!estado.camera.aoRolar) return;
@@ -64,14 +72,21 @@ function configurarMouse(canvas) {
 
   let arrastando = false;
   canvas.addEventListener("pointerdown", (e) => {
-    arrastando = true;
     canvas.setPointerCapture(e.pointerId);
+    
+    // se for carinho a câmera não gira
+    if (carinho.aoPressionar(e)) return;
+    arrastando = true;
   });
   canvas.addEventListener("pointermove", (e) => {
+    carinho.aoMover(e);
     if (!arrastando || !estado.camera.aoArrastar) return;
     estado.camera.aoArrastar(e.movementX, e.movementY);
   });
-  const soltar = () => { arrastando = false; };
+  const soltar = () => {
+    arrastando = false;
+    carinho.aoSoltar();
+  };
   canvas.addEventListener("pointerup", soltar);
   canvas.addEventListener("pointercancel", soltar);
 }
@@ -129,7 +144,10 @@ function criarCena(gl) {
     modelo: m4.identity(),
   };
 
-  return [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura)];
+  const cachorro = criarCachorro(gl);
+  const objetos = [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura), cachorro.raiz];
+
+  return { objetos, cachorro };
 }
 
 async function main() {
@@ -148,9 +166,13 @@ async function main() {
     throw new Error("Shader: " + msg);
   });
 
-  const objetos = criarCena(gl);
-  configurarTeclado();
-  configurarMouse(canvas);
+  const { objetos, cachorro } = criarCena(gl);
+  const carinho = criarCarinho({ canvas, cachorro, balao: document.querySelector("#balao") });
+  const ambiente = criarSomAmbiente();
+  window.addEventListener("pointerdown", ambiente.iniciar);
+  window.addEventListener("keydown", ambiente.iniciar);
+  configurarTeclado(cachorro, ambiente);
+  configurarMouse(canvas, carinho);
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
@@ -192,7 +214,8 @@ async function main() {
 
     const camera = estado.camera;
     camera.atualizar?.(dt);
-    atualizarPainel(camera);
+    cachorro.atualizar(dt);
+    atualizarPainel(camera, cachorro);
 
     twgl.resizeCanvasToDisplaySize(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -202,6 +225,8 @@ async function main() {
     const projecao = m4.perspective((45 * Math.PI) / 180, aspecto, 0.1, 100);
     const posCamera = camera.posicao();
     const visao = m4.inverse(m4.lookAt(posCamera, camera.alvo, [0, 1, 0]));
+
+    carinho.atualizar(projecao, visao);
 
     gl.useProgram(programa.program);
 
