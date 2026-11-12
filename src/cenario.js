@@ -7,6 +7,7 @@ import {
   criarMalhaCopa,
   ALTURA_TRONCO,
 } from "./geometria.js";
+import { POSICAO_MOINHO } from "./moinho.js";
 
 const m4 = twgl.m4;
 
@@ -18,7 +19,8 @@ export function sortearLayout(raioDiorama, semente) {
 
   const ocupados = [
     { x: 0, z: 0, r: 1.8 },     
-    { x: 2.6, z: -1.6, r: 1.0 }, 
+    POSICAO_MOINHO,
+    { x: 4.15, z: 0.37, r: 0.7 },
   ];
 
   function sortear(quantidade, raioMin, raioMax, sortearTamanho) {

@@ -2,6 +2,7 @@ import * as twgl from "./twgl.js";
 import { CameraAutomatica, CameraOrbital } from "./camera.js";
 import { criarCenario } from "./cenario.js";
 import { criarCachorro } from "./cachorro.js";
+import { criarMoinho } from "./moinho.js";
 import { criarCarinho } from "./carinho.js";
 import { criarSomAmbiente } from "./ambiente.js";
 
@@ -145,9 +146,16 @@ function criarCena(gl) {
   };
 
   const cachorro = criarCachorro(gl);
-  const objetos = [chao, base, ...criarCenario(gl, RAIO_DIORAMA, carregarTextura), cachorro.raiz];
+  const moinho = criarMoinho(gl, carregarTextura);
+  const objetos = [
+    chao,
+    base,
+    ...criarCenario(gl, RAIO_DIORAMA, carregarTextura),
+    moinho.raiz,
+    cachorro.raiz,
+  ];
 
-  return { objetos, cachorro };
+  return { objetos, cachorro, moinho };
 }
 
 async function main() {
@@ -166,7 +174,7 @@ async function main() {
     throw new Error("Shader: " + msg);
   });
 
-  const { objetos, cachorro } = criarCena(gl);
+  const { objetos, cachorro, moinho } = criarCena(gl);
   const carinho = criarCarinho({ canvas, cachorro, balao: document.querySelector("#balao") });
   const ambiente = criarSomAmbiente();
   window.addEventListener("pointerdown", ambiente.iniciar);
@@ -215,6 +223,7 @@ async function main() {
     const camera = estado.camera;
     camera.atualizar?.(dt);
     cachorro.atualizar(dt);
+    moinho.atualizar(dt);
     atualizarPainel(camera, cachorro);
 
     twgl.resizeCanvasToDisplaySize(canvas);
