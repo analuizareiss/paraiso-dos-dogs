@@ -5,28 +5,21 @@ import { criarCachorro } from "./cachorro.js";
 import { criarMoinho } from "./moinho.js";
 import { criarCarinho } from "./carinho.js";
 import { criarSomAmbiente } from "./ambiente.js";
+import { CONFIG } from "./config.js";
 
 const m4 = twgl.m4;
 
 twgl.setDefaults({ attribPrefix: "a_" });
 
-const RAIO_DIORAMA = 5;
-const CENTRO_DIORAMA = [0, 0, 0];
-
 const cameras = {
-  1: new CameraAutomatica(CENTRO_DIORAMA),
-  2: new CameraOrbital(CENTRO_DIORAMA),
+  1: new CameraAutomatica(CONFIG.diorama.centro),
+  2: new CameraOrbital(CONFIG.diorama.centro),
 };
 
 const estado = {
   iluminacao: true,
+  neblina: CONFIG.neblina.ativaAoIniciar,
   camera: cameras[1],
-};
-
-const luz = {
-  direcao: [-0.5, -1.0, -0.6],
-  cor: [1.0, 0.95, 0.85],
-  ambiente: [0.25, 0.25, 0.3],
 };
 
 function mostrarStatus(texto) {
@@ -39,7 +32,8 @@ function atualizarPainel(camera, cachorro) {
     `câmera: ${camera.nome}\n` +
     `distância: ${camera.distancia.toFixed(1)}\n` +
     `elevação: ${graus(camera.elevacao)}º\n` +
-    `pose: ${cachorro.nomePose}`;
+    `pose: ${cachorro.nomePose}\n` +
+    `neblina: ${estado.neblina ? "ligada" : "desligada"}`;
 }
 
 async function carregarTexto(url) {
@@ -59,6 +53,8 @@ function configurarTeclado(cachorro, ambiente) {
       cachorro.proximaPose();
     } else if (tecla === "m" && !e.repeat) {
       ambiente.alternarMudo();
+    } else if (tecla === "n" && !e.repeat) {
+      estado.neblina = !estado.neblina;
     }
   });
 }
@@ -117,7 +113,7 @@ function criarDisco(gl, raio, divisoes) {
 function criarCena(gl) {
   const chao = {
     nome: "chão",
-    malha: criarDisco(gl, RAIO_DIORAMA, 64),
+    malha: criarDisco(gl, CONFIG.diorama.raio, 64),
     material: {
       ka: [0.6, 0.6, 0.6],
       kd: [0.9, 0.9, 0.9],
@@ -132,7 +128,7 @@ function criarCena(gl) {
   const base = {
     nome: "hemisfério",
     malha: twgl.primitives.createSphereBufferInfo(
-      gl, RAIO_DIORAMA, 64, 24, Math.PI / 2, Math.PI
+      gl, CONFIG.diorama.raio, 64, 24, Math.PI / 2, Math.PI
     ),
     material: {
       ka: [0.6, 0.6, 0.6],
@@ -150,7 +146,7 @@ function criarCena(gl) {
   const objetos = [
     chao,
     base,
-    ...criarCenario(gl, RAIO_DIORAMA, carregarTextura),
+    ...criarCenario(gl, CONFIG.diorama.raio, carregarTextura),
     moinho.raiz,
     cachorro.raiz,
   ];
@@ -184,7 +180,7 @@ async function main() {
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
-  gl.clearColor(0.06, 0.08, 0.11, 1);
+  gl.clearColor(...CONFIG.fundo.cor, 1);
 
 
   function desenharObjeto(objeto, matrizPai) {
@@ -231,7 +227,7 @@ async function main() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const aspecto = canvas.clientWidth / canvas.clientHeight;
-    const projecao = m4.perspective((45 * Math.PI) / 180, aspecto, 0.1, 100);
+    const projecao = m4.perspective((CONFIG.camera.fov * Math.PI) / 180, aspecto, CONFIG.camera.near, CONFIG.camera.far);
     const posCamera = camera.posicao();
     const visao = m4.inverse(m4.lookAt(posCamera, camera.alvo, [0, 1, 0]));
 
@@ -242,11 +238,15 @@ async function main() {
     const uniformesDaCena = {
       u_projecao: projecao,
       u_visao: visao,
-      u_dirLuz: luz.direcao,
-      u_corLuz: luz.cor,
-      u_luzAmbiente: luz.ambiente,
+      u_dirLuz: CONFIG.luz.direcao,
+      u_corLuz: CONFIG.luz.cor,
+      u_luzAmbiente: CONFIG.luz.ambiente,
       u_posCamera: posCamera,
       u_iluminacao: estado.iluminacao,
+      u_neblina: estado.neblina,
+      u_corNeblina: CONFIG.fundo.cor,
+      u_neblinaInicio: CONFIG.neblina.inicio,
+      u_neblinaFim: CONFIG.neblina.fim,
     };
 
     twgl.setUniforms(programa, uniformesDaCena);

@@ -1,5 +1,7 @@
-const ARQUIVO = "assets/ambiente.mp3";
-const VOLUME = 0.5;
+import { CONFIG } from "./config.js";
+
+const ARQUIVO = CONFIG.som.arquivo;
+const VOLUME = CONFIG.som.volume;
 
 export function criarSomAmbiente() {
   const audio = new Audio(ARQUIVO);

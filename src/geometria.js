@@ -19,11 +19,6 @@ export function criarAleatorio(semente) {
   };
 }
 
-function ruidoDePosicao(x, y, z, semente) {
-  const q = (n) => Math.round(n * 1000) / 1000;
-  const s = Math.sin(q(x) * 12.9898 + q(y) * 78.233 + q(z) * 37.719 + semente * 19.19) * 43758.5453;
-  return s - Math.floor(s);
-}
 
 export function facetar(vertices) {
   const { position, texcoord, indices } = vertices;
@@ -74,7 +69,7 @@ export function gerarVerticesPedra(raio, semente) {
   const piso = -0.45 * raio;
 
   for (let i = 0; i < pos.length; i += 3) {
-    const f = 0.72 + 0.56 * ruidoDePosicao(pos[i], pos[i + 1], pos[i + 2], semente);
+    const f = 1 + 0.25 * Math.sin(3 * pos[i] + semente) * Math.cos(2 * pos[i + 2]);
     pos[i] *= f;
     pos[i + 1] = Math.max(pos[i + 1] * f * 0.8, piso);
     pos[i + 2] *= f;
@@ -132,8 +127,7 @@ export function gerarVerticesCopa(semente) {
   const vertices = createSphereVertices(0.9, 7, 6);
   const pos = vertices.position;
   for (let i = 0; i < pos.length; i += 3) {
-    const f = 0.85 + 0.3 * ruidoDePosicao(pos[i], pos[i + 1], pos[i + 2], semente);
-    pos[i] *= f;
+    const f = 1 + 0.15 * Math.sin(3 * pos[i] + semente) * Math.cos(3 * pos[i + 2] + semente);
     pos[i + 1] *= f;
     pos[i + 2] *= f;
   }

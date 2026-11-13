@@ -7,23 +7,22 @@ import {
   criarMalhaCopa,
   ALTURA_TRONCO,
 } from "./geometria.js";
-import { POSICAO_MOINHO } from "./moinho.js";
+import { CONFIG } from "./config.js";
 
 const m4 = twgl.m4;
 
-const FOLGA_BORDA = 0.15;   
-const FOLGA_ENTRE = 0.1;   
 
 export function sortearLayout(raioDiorama, semente) {
   const rng = criarAleatorio(semente);
 
+  // lugares que o cenário não pode ocupar
   const ocupados = [
-    { x: 0, z: 0, r: 1.8 },     
-    POSICAO_MOINHO,
-    { x: 4.15, z: 0.37, r: 0.7 },
+    CONFIG.reservas.centro,
+    CONFIG.moinho,
+    CONFIG.reservas.cachorroNaBorda,
   ];
 
-  function sortear(quantidade, raioMin, raioMax, sortearTamanho) {
+  function sortear({ quantidade, raioMin, raioMax }, sortearTamanho) {
     const colocados = [];
     for (let i = 0; i < quantidade; i++) {
       for (let tentativa = 0; tentativa < 300; tentativa++) {
@@ -38,9 +37,9 @@ export function sortearLayout(raioDiorama, semente) {
           giro: rng() * Math.PI * 2,
         };
 
-        const dentroDoChao = distancia + candidato.r <= raioDiorama - FOLGA_BORDA;
+        const dentroDoChao = distancia + candidato.r <= raioDiorama - CONFIG.cenario.folgaBorda;
         const livre = ocupados.every(
-          (o) => Math.hypot(o.x - candidato.x, o.z - candidato.z) >= o.r + candidato.r + FOLGA_ENTRE
+          (o) => Math.hypot(o.x - candidato.x, o.z - candidato.z) >= o.r + candidato.r + CONFIG.cenario.folgaEntre
         );
         if (dentroDoChao && livre) {
           ocupados.push(candidato);
@@ -53,15 +52,15 @@ export function sortearLayout(raioDiorama, semente) {
   }
 
 
-  const arvores = sortear(4, 2.6, 3.8, (rng) => {
+  const arvores = sortear(CONFIG.cenario.arvores, (rng) => {
     const escala = 0.8 + rng() * 0.3;
     return { escala, r: 1.05 * escala };  
   });
-  const pedras = sortear(5, 1.9, 4.4, (rng) => {
+  const pedras = sortear(CONFIG.cenario.pedras, (rng) => {
     const escala = 0.4 + rng() * 0.5;
     return { escala, r: 1.2 * escala };   
   });
-  const tufos = sortear(18, 1.3, 4.6, (rng) => {
+  const tufos = sortear(CONFIG.cenario.tufos, (rng) => {
     const escala = 0.8 + rng() * 0.6;
     return { escala, r: 0.3 * escala };
   });
@@ -70,7 +69,7 @@ export function sortearLayout(raioDiorama, semente) {
 }
 
 export function criarCenario(gl, raioDiorama, carregarTextura) {
-  const layout = sortearLayout(raioDiorama, 2024);
+  const layout = sortearLayout(raioDiorama, CONFIG.cenario.semente);
 
   const texturas = {
     casca: carregarTextura(gl, "assets/casca.png"),

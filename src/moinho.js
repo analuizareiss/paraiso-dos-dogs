@@ -1,5 +1,6 @@
 import * as twgl from "./twgl.js";
 import { facetar } from "./geometria.js";
+import { CONFIG } from "./config.js";
 
 const m4 = twgl.m4;
 const {
@@ -9,19 +10,18 @@ const {
   reorientVertices,
 } = twgl.primitives;
 
-
-export const POSICAO_MOINHO = { x: 2.6, z: -1.6, r: 1.45 };
+const POSICAO_MOINHO = CONFIG.moinho;
 
 const ALTURA_TORRE = 1.6;
 const ALTURA_TELHADO = 0.7;
 const ALTURA_EIXO = 1.45;      
 const Z_EIXO = 0.3;           
-const COMPRIMENTO_EIXO = 0.38; 
+const COMPRIMENTO_EIXO = 0.38;
 const RAIO_CUBO = 0.13;
 const COMPRIMENTO_PA = 1.1;
 const LARGURA_PA = 0.22;
 const ESPESSURA_PA = 0.04;
-const VELOCIDADE = 0.8;       
+const VELOCIDADE = CONFIG.moinho.velocidade;
 
 const MATERIAL = { ka: [0.6, 0.6, 0.6], kd: [0.9, 0.9, 0.9], ks: [0.05, 0.05, 0.05], brilho: 6 };
 

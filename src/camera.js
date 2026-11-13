@@ -1,3 +1,5 @@
+import { CONFIG } from "./config.js";
+
 const GRAUS = Math.PI / 180;
 
 function limitar(valor, minimo, maximo) {
@@ -15,14 +17,16 @@ function posicaoEmVoltaDoAlvo(alvo, distancia, elevacao, angulo) {
 
 export class CameraAutomatica {
   constructor(alvo) {
+    const c = CONFIG.camera.automatica;
     this.nome = "automática";
     this.alvo = alvo;
-    this.distancia = 14;
-    this.distanciaMin = 7;
-    this.distanciaMax = 30;
-    this.elevacao = 45 * GRAUS;
+    this.distancia = c.distancia;
+    this.distanciaMin = c.distanciaMin;
+    this.distanciaMax = c.distanciaMax;
+    this.elevacao = c.elevacao * GRAUS;
     this.angulo = 0;
-    this.velocidade = 0.25; 
+    this.velocidade = c.velocidade;
+    this.zoomPorRolagem = c.zoomPorRolagem;
   }
 
   atualizar(dt) {
@@ -31,7 +35,7 @@ export class CameraAutomatica {
 
   aoRolar(deltaY) {
     this.distancia = limitar(
-      this.distancia + deltaY * 0.01,
+      this.distancia + deltaY * this.zoomPorRolagem,
       this.distanciaMin,
       this.distanciaMax
     );
@@ -44,16 +48,16 @@ export class CameraAutomatica {
 
 export class CameraOrbital {
   constructor(alvo) {
+    const c = CONFIG.camera.orbital;
     this.nome = "orbital";
     this.alvo = alvo;
-    this.distancia = 14;
-    this.elevacao = 30 * GRAUS;
-    this.angulo = 45 * GRAUS;
-    this.elevacaoMin = 5 * GRAUS;
-    this.elevacaoMax = 85 * GRAUS; 
-    this.sensibilidade = 0.005;   
+    this.distancia = c.distancia;
+    this.elevacao = c.elevacao * GRAUS;
+    this.angulo = c.angulo * GRAUS;
+    this.elevacaoMin = c.elevacaoMin * GRAUS;
+    this.elevacaoMax = c.elevacaoMax * GRAUS;
+    this.sensibilidade = c.sensibilidade;
   }
-
 
   aoArrastar(deltaX, deltaY) {
     this.angulo -= deltaX * this.sensibilidade;
