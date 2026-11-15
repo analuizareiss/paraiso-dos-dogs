@@ -4,14 +4,11 @@ export const CONFIG = {
     centro: [0, 0, 0],
   },
 
-  fundo: {
-    cor: [0.06, 0.08, 0.11],
-  },
-
-  luz: {
-    direcao: [-0.5, -1.0, -0.6], // para onde a luz vai (não de onde ela vem)
-    cor: [1.0, 0.95, 0.85],
-    ambiente: [0.25, 0.25, 0.3],
+  // as cores do céu e da luz vêm do ciclo dia/noite
+  cicloDia: {
+    ativoAoIniciar: true,
+    duracaoDia: 90,
+    horaInicial: 9,
   },
 
   neblina: {

@@ -5,6 +5,7 @@ import { criarCachorro } from "./cachorro.js";
 import { criarMoinho } from "./moinho.js";
 import { criarCarinho } from "./carinho.js";
 import { criarSomAmbiente } from "./ambiente.js";
+import { criarCicloDia } from "./ciclo.js";
 import { CONFIG } from "./config.js";
 
 const m4 = twgl.m4;
@@ -26,14 +27,15 @@ function mostrarStatus(texto) {
   document.querySelector("#status").textContent = texto;
 }
 
-function atualizarPainel(camera, cachorro) {
+function atualizarPainel(camera, cachorro, ciclo) {
   const graus = (rad) => (rad * 180 / Math.PI).toFixed(0);
   document.querySelector("#hud").textContent =
     `câmera: ${camera.nome}\n` +
     `distância: ${camera.distancia.toFixed(1)}\n` +
     `elevação: ${graus(camera.elevacao)}º\n` +
     `pose: ${cachorro.nomePose}\n` +
-    `neblina: ${estado.neblina ? "ligada" : "desligada"}`;
+    `neblina: ${estado.neblina ? "ligada" : "desligada"}\n` +
+    `hora: ${ciclo.descricao()}`;
 }
 
 async function carregarTexto(url) {
@@ -42,7 +44,7 @@ async function carregarTexto(url) {
   return resposta.text();
 }
 
-function configurarTeclado(cachorro, ambiente) {
+function configurarTeclado(cachorro, ambiente, ciclo) {
   window.addEventListener("keydown", (e) => {
     const tecla = e.key.toLowerCase();
     if (tecla === "l") {
@@ -55,6 +57,8 @@ function configurarTeclado(cachorro, ambiente) {
       ambiente.alternarMudo();
     } else if (tecla === "n" && !e.repeat) {
       estado.neblina = !estado.neblina;
+    } else if (tecla === "t" && !e.repeat) {
+      ciclo.alternar();
     }
   });
 }
@@ -171,16 +175,16 @@ async function main() {
   });
 
   const { objetos, cachorro, moinho } = criarCena(gl);
+  const ciclo = criarCicloDia();
   const carinho = criarCarinho({ canvas, cachorro, balao: document.querySelector("#balao") });
   const ambiente = criarSomAmbiente();
   window.addEventListener("pointerdown", ambiente.iniciar);
   window.addEventListener("keydown", ambiente.iniciar);
-  configurarTeclado(cachorro, ambiente);
+  configurarTeclado(cachorro, ambiente, ciclo);
   configurarMouse(canvas, carinho);
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
-  gl.clearColor(...CONFIG.fundo.cor, 1);
 
 
   function desenharObjeto(objeto, matrizPai) {
@@ -220,10 +224,12 @@ async function main() {
     camera.atualizar?.(dt);
     cachorro.atualizar(dt);
     moinho.atualizar(dt);
-    atualizarPainel(camera, cachorro);
+    ciclo.atualizar(dt);
+    atualizarPainel(camera, cachorro, ciclo);
 
     twgl.resizeCanvasToDisplaySize(canvas);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(...ciclo.estado.corFundo, 1); // o céu muda de cor ao longo do dia
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const aspecto = canvas.clientWidth / canvas.clientHeight;
@@ -238,13 +244,13 @@ async function main() {
     const uniformesDaCena = {
       u_projecao: projecao,
       u_visao: visao,
-      u_dirLuz: CONFIG.luz.direcao,
-      u_corLuz: CONFIG.luz.cor,
-      u_luzAmbiente: CONFIG.luz.ambiente,
+      u_dirLuz: ciclo.estado.direcaoLuz,
+      u_corLuz: ciclo.estado.corLuz,
+      u_luzAmbiente: ciclo.estado.luzAmbiente,
       u_posCamera: posCamera,
       u_iluminacao: estado.iluminacao,
       u_neblina: estado.neblina,
-      u_corNeblina: CONFIG.fundo.cor,
+      u_corNeblina: ciclo.estado.corFundo, // a neblina se funde com o céu
       u_neblinaInicio: CONFIG.neblina.inicio,
       u_neblinaFim: CONFIG.neblina.fim,
     };
